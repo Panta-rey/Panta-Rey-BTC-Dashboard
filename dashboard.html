@@ -1086,9 +1086,9 @@ function renderJournal(snaps,H){
     }
   });
   if(!anyAgg){
-    const firstDue=addDays(firstDate,7);
-    const daysLeft=Math.max(0,Math.round((Date.parse(firstDue)-Date.parse(today))/864e5));
-    h+=`<div class="sub" style="line-height:1.5;margin-top:2px">Noch keine Auswertung reif. Erste 1-Wochen-Auswertung am <b style="color:var(--ink)">${fmtDate(firstDue)}</b>${daysLeft>0?` (in ${daysLeft} ${daysLeft===1?"Tag":"Tagen"})`:""}. Dann vergleicht das Journal den damaligen Strom-Score mit der echten Kursentwicklung.</div>`;
+    // Kalibrierung braucht >=3 unabhängige reife Episoden — ehrlich sagen, wo wir stehen
+    const nAcc=eps.filter(e=>e.st==="acc").length;
+    h+=`<div class="sub" style="line-height:1.5;margin-top:2px">Noch keine Kalibrierung reif. Sie erscheint ab <b style="color:var(--ink)">3 unabhängigen Akkumulations-Episoden</b> (aktuell ${nAcc}) — eine neue Episode beginnt erst, wenn der Strom die Zone wechselt oder die Aufzeichnung &gt;3 Tage pausiert. Einzelne Tage unten reifen bereits (1W/1M/3M).</div>`;
   }
   h+=`</div>`;
 
