@@ -133,6 +133,14 @@
   .scen .stat .sv{font-family:var(--disp);font-weight:600;font-size:16px}
   .scen .stat .sl{font-size:9.5px;color:var(--mut);margin-top:2px;letter-spacing:.02em}
   .scen .cond{font-size:11px;color:var(--mut);line-height:1.5;border-top:1px solid var(--line);padding-top:8px;margin-top:2px}
+  .scen .tailline{font-size:10.5px;color:var(--mut);text-align:center;padding-top:2px}
+  .actrow{display:flex;align-items:center;gap:7px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .actrow .alab{font-size:11.5px;color:var(--mut);flex:1}
+  .actbtn{border:1px solid var(--line);background:var(--bg2);color:var(--mut);border-radius:9px;padding:7px 10px;font-size:11.5px;cursor:pointer;font-family:var(--sans)}
+  .actbtn.on{border-color:var(--teal);color:var(--teal);background:#2dd4a712}
+  .actbtn.on.sell{border-color:var(--coral);color:var(--coral);background:#f0656a12}
+  .jrow .ja{font-size:10px;width:14px;flex:none;text-align:center;font-weight:700}
+  .jrow .ja.buy{color:var(--teal)} .jrow .ja.sell{color:var(--coral)} .jrow .ja.none{color:var(--mut2)}
   .scen.weak{opacity:.78}
   .scen .warnbadge{font-size:9.5px;color:var(--amber);border:1px solid #f0b42940;border-radius:5px;padding:1px 6px}
 
@@ -300,8 +308,15 @@
   <div style="height:6px"></div>
   <div class="field"><label>Worker-URL <small>(für Makro-Linse · Phase 1b)</small></label><input id="s_worker" type="url" inputmode="url" placeholder="https://panta-rey.dein-name.workers.dev"></div>
   <div class="shint">Leer lassen = nur Crypto-Daten (Phase 1a). Mit Worker-URL kommen Dollar, Zinsen, S&amp;P-Korrelation, Gold und Liquidität dazu, und dein Tages-Snapshot wird gespeichert.</div>
+  <div class="field"><label>Snapshot-Secret <small>(optional · schützt das Journal vor fremden Schreibzugriffen)</small></label><input id="s_secret" type="text" autocomplete="off" placeholder="leer = wie bisher"></div>
+  <div class="shint">Wird als Header <b>X-Panta-Key</b> mitgesendet. Nur eintragen, wenn der Worker das Secret ebenfalls prüft — sonst leer lassen.</div>
+  <div class="shint" id="snapStatus" style="margin-top:4px"></div>
 
   <button class="savebtn" id="saveBtn">Speichern</button>
+  <button class="ghostbtn" id="exportBtn">⬇ Backup exportieren (Historie, Anker, Log)</button>
+  <button class="ghostbtn" id="importBtn">⬆ Backup importieren</button>
+  <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+  <div class="shint">Alle lokalen Daten (Kurs-Historie seit 2017, Anker, Entscheidungslog, Konfiguration) liegen nur in diesem Browser. Safari/iOS löscht Website-Speicher bei langer Inaktivität — regelmässig exportieren.</div>
   <button class="ghostbtn" id="rebuildHistBtn">↻ Szenario-Historie neu aufbauen</button>
   <div class="shint" id="histStatus" style="margin:6px 0 0">Historie noch nicht geladen.</div>
   <button class="ghostbtn" id="closeSetBtn">Schliessen</button>
@@ -317,7 +332,8 @@ const store={
   get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 };
-const CFG=Object.assign({realized:null,realizedTs:null,sth:null,sthTs:null,etf:null,turn:null,turntype:"Top",workerUrl:null},store.get("pr_cfg",{}));
+const CFG=Object.assign({realized:null,realizedTs:null,sth:null,sthTs:null,etf:null,etfTs:null,turn:null,turntype:"Top",workerUrl:null,snapSecret:null},store.get("pr_cfg",{}));
+const ETF_MAX_AGE_DAYS=2; // Flow-Daten altern in Tagen, nicht Monaten (Council 2.7.)
 const ANCHOR_MAX_AGE_DAYS=30;
 function anchorAgeDays(ts){return ts==null?null:Math.floor((Date.now()-ts)/864e5);}
 
@@ -519,7 +535,8 @@ function forwardStats(s,episodes,horizonDays){
   });
   if(!rets.length)return null;
   const pos=rets.filter(r=>r>0).length;
-  return{n:rets.length,posPct:Math.round(pos/rets.length*100),med:median(rets),maxDD:median(dds)};
+  return{n:rets.length,posPct:Math.round(pos/rets.length*100),med:median(rets),maxDD:median(dds),
+    worstRet:Math.min(...rets),worstDD:Math.min(...dds)}; // Tail-Sicht: schlechteste unabhängige Episode
 }
 
 /* Findet passende Tage, clustert zu Episoden, lockert Bedingungen falls
@@ -756,8 +773,8 @@ const EB={
   gold:{t:"Gold",u:"USD",what:"Goldpreis je Unze (London-Fixing via FRED). Vergleichsanker für „digitales Gold\".",hist:"Steigendes Gold zeigt Store-of-Value-Nachfrage und Misstrauen ins Papiergeld — Umfeld, in dem BTC oft mitläuft. Kontext."},
   m2:{t:"Geldmenge M2",u:"",what:"Die breite US-Geldmenge (FRED M2SL) — ein Mass für die Liquidität im System.",hist:"Wachsende Liquidität war langfristig der stärkste Rückenwind für BTC. Schrumpfende Geldmenge = Gegenwind. Monatlich aktualisiert, träge."},
   macro:{t:"Makro-Umfeld",u:"",what:"Fasst Dollar, Zinsen, S&P-Trend und Liquidität zu einem Gegenwind/Rückenwind-Score zusammen.",hist:"Bewusst NICHT im Strom-Score — das BTC-Makro-Verhältnis ist zu instabil, um es in eine Bull/Bear-Zahl zu mitteln. Es steuert stattdessen den Klartext und später die Szenarien."},
-  scenario:{t:"Wie die Szenarien entstehen",u:"",what:"Kein Kursziel und keine Vorhersage. Die App sucht in der BTC-Historie alle Tage, an denen Mayer, Fear&Greed und Funding in ähnlichen Bereichen lagen wie heute, und zeigt, wie sich der Kurs danach entwickelt hat.",hist:"Entscheidend: zusammenhängende Treffer-Tage werden zu einer Episode zusammengefasst (ein 60-Tage-Bärenmarkt = EINE Episode, nicht 60 Fälle) und ab dem ersten Tag gemessen. So zählt jede unabhängige historische Situation nur einmal. Reicht die Zahl der Episoden nicht, lockert die App die Bedingungen (erst Funding weg, dann FNG). BTC hat nur ~8 Jahre Historie — bei wenigen Episoden sind die Zahlen grobe Orientierung, keine belastbare Statistik."},
-  journal:{t:"Journal · Lerneffekt",u:"",what:"Hält fest, was Panta Rey an jedem Tag „dachte“ (der Composite-Strom-Score) und vergleicht es später mit der tatsächlichen Kursentwicklung 1 Woche, 1 Monat und 3 Monate danach.",hist:"So siehst du über die Zeit, ob die Akkumulations-/Distributions-Einschätzung des Tools im Rückblick gestimmt hat — als beobachtete Tendenz, nicht als Note. Es ist bewusst ehrlich: Es wertet nur tatsächlich aufgezeichnete Tage aus (keine rückwirkende Schönrechnung) und braucht Zeit, bis genug Einträge reif sind. Die erste 1-Wochen-Auswertung kommt 7 Tage nach dem ersten Snapshot."}
+  scenario:{t:"Wie die Szenarien entstehen",u:"",what:"Kein Kursziel und keine Vorhersage. Die App sucht in der BTC-Historie alle Tage, an denen Mayer, Fear&Greed und Funding in ähnlichen Bereichen lagen wie heute, und zeigt, wie sich der Kurs danach entwickelt hat.",hist:"Entscheidend: zusammenhängende Treffer-Tage werden zu einer Episode zusammengefasst (ein 60-Tage-Bärenmarkt = EINE Episode, nicht 60 Fälle) und ab dem ersten Tag gemessen. So zählt jede unabhängige historische Situation nur einmal. Reicht die Zahl der Episoden nicht, lockert die App die Bedingungen (erst Funding weg, dann FNG). BTC hat nur ~8 Jahre Historie — bei wenigen Episoden sind die Zahlen grobe Orientierung, keine belastbare Statistik. Die Zeile „Schlechteste Episode“ zeigt bewusst den historisch übelsten Verlauf: Der Median beschreibt den typischen Fall, aber BTC lebt in den Rändern — die Episode, die weh tut, verschwindet im Median."},
+  journal:{t:"Journal · Lerneffekt",u:"",what:"Hält fest, was Panta Rey an jedem Tag „dachte“ (der Composite-Strom-Score) und vergleicht es später mit der tatsächlichen Kursentwicklung 1 Woche, 1 Monat und 3 Monate danach.",hist:"So siehst du über die Zeit, ob die Akkumulations-/Distributions-Einschätzung des Tools im Rückblick gestimmt hat — als beobachtete Tendenz, nicht als Note. Es ist bewusst ehrlich: Es wertet nur tatsächlich aufgezeichnete Tage aus (keine rückwirkende Schönrechnung), und aufeinanderfolgende Tage mit gleicher Haltung zählen als EINE Episode — dieselbe Autokorrelations-Korrektur wie bei den Szenarien, sonst wären 10 ruhige Juni-Tage fälschlich 10 Beweise. Kalibrierung erscheint erst ab 3 unabhängigen reifen Episoden. Neu dazu der Entscheidungslog: ein Tipp pro Tag hält fest, was DU getan hast (nur am Tag selbst eintragbar) — der einzige Track-Record, der dein Verhalten verbessert, ist dein eigener."}
 };
 
 /* ---------------- Render ---------------- */
@@ -873,7 +890,14 @@ function render(){
   };
   {const rp=effRP(m);anc.push(aRow("Realized Price",rp&&rp.auto?"auto":"Cost-Basis aller Coins",rp?rp.v:null,m.price,rp?rp.age:null));}
   anc.push(aRow("STH Realized","Kostenbasis junger Coins",CFG.sth,m.price,anchorAgeDays(CFG.sthTs)));
-  if(CFG.etf!=null&&CFG.etf!==""){const v=+CFG.etf;anc.push(`<div class="anchor"><div class="al">ETF-Flow heute<small>Mio USD</small></div><div class="ar"><span class="dot ${v>0?'g':v<0?'r':'n'}" style="box-shadow:none"></span>${(v>=0?"+":"")+v}</div></div>`);}
+  if(CFG.etf!=null&&CFG.etf!==""){
+    const v=+CFG.etf;const eAge=anchorAgeDays(CFG.etfTs);const eStale=eAge!=null&&eAge>ETF_MAX_AGE_DAYS;
+    const eBadge=eStale?'<span class="stalebadge">alt</span>':'';
+    const eLbl=eStale?`ETF-Flow${eBadge}<small>Mio USD · ${eAge} T alt</small>`:`ETF-Flow heute${eBadge}<small>Mio USD${eAge!=null&&eAge>0?" · "+eAge+" T alt":""}</small>`;
+    const eDot=eStale?"n":(v>0?"g":v<0?"r":"n");
+    const eVal=eStale?`<span style="color:var(--mut)">${(v>=0?"+":"")+v}</span>`:(v>=0?"+":"")+v;
+    anc.push(`<div class="anchor"><div class="al">${eLbl}</div><div class="ar"><span class="dot ${eDot}" style="box-shadow:none"></span>${eVal}</div></div>`);
+  }
   $("anchors").innerHTML=anc.join("");
 
   // timing
@@ -894,9 +918,9 @@ function renderTiming(){
   el.innerHTML=`
     <div class="tr"><span>Letzter Wendepunkt</span><span class="v">${type} · ${t.toLocaleDateString("de-CH")}</span></div>
     <div class="tr"><span>Nächste Erwartung</span><span class="v" style="color:${next==='Bottom'?'var(--teal)':'var(--coral)'}">${next} · ${target.toLocaleDateString("de-CH")}</span></div>
-    <div class="tr"><span>Noch</span><span class="v mut">${left<0?"überfällig ("+Math.abs(left)+" T)":left+" Tage"}</span></div>
+    <div class="tr"><span>Abstand zum Muster</span><span class="v mut">${left<0?Math.abs(left)+" T über dem Muster":left+" Tage bis zum Muster"}</span></div>
     <div class="bar" style="margin-top:10px"><i style="width:${pct}%;background:linear-gradient(90deg,var(--teal),var(--amber))"></i></div>
-    <div style="font-size:10.5px;color:#46505f;margin-top:8px;text-align:center">Muster aus 3 Zyklen · Top→Bottom ≈364 T · Bottom→Top ≈1064 T · keine Prognose</div>`;
+    <div style="font-size:10.5px;color:#46505f;margin-top:8px;text-align:center">Muster aus nur 3 Zyklen (n=3) — Faustregel, statistisch nicht belastbar. Top→Bottom ≈364 T · Bottom→Top ≈1064 T · keine Prognose</div>`;
 }
 
 /* ---------------- Makro-Linse ---------------- */
@@ -930,12 +954,21 @@ function buildSnapshot(){
     lens_scores:{valuation:C.lens.val,positioning:C.lens.pos},
     macro_score:C.macroScore,composite:C.comp.score};
 }
+let snapWarned=false; // Fehl-Toast max. 1x pro Sitzung (Worker down soll nicht nerven, aber sichtbar sein)
 async function maybeSnapshot(){
   if(!CFG.workerUrl)return;
   const day=new Date().toISOString().slice(0,10);
   if(store.get("pr_lastsnap",null)===day)return;
   const snap=buildSnapshot();if(!snap||snap.composite==null)return;
-  try{await fetch(CFG.workerUrl+"/snapshot",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(snap)});store.set("pr_lastsnap",day);}catch(e){}
+  try{
+    const hdr={"Content-Type":"application/json"};
+    if(CFG.snapSecret)hdr["X-Panta-Key"]=CFG.snapSecret;
+    const r=await fetch(CFG.workerUrl+"/snapshot",{method:"POST",headers:hdr,body:JSON.stringify(snap)});
+    if(!r.ok)throw new Error(r.status);
+    store.set("pr_lastsnap",day);
+  }catch(e){
+    if(!snapWarned){snapWarned=true;toast("Snapshot nicht gespeichert — Worker prüfen");}
+  }
 }
 
 /* ---------------- Szenarien: Render + lazy Laden ---------------- */
@@ -950,6 +983,7 @@ function scenCard(r){
       <div class="stat"><div class="sv">${st.med>=0?"+":""}${st.med.toFixed(1)}%</div><div class="sl">Median</div></div>
       <div class="stat"><div class="sv" style="color:var(--coral)">${st.maxDD.toFixed(1)}%</div><div class="sl">Median-Dip</div></div>
     </div>
+    ${st.n>1?`<div class="tailline">Schlechteste Episode: Ende ${st.worstRet>=0?"+":""}${st.worstRet.toFixed(1)}% · Dip ${st.worstDD.toFixed(1)}%</div>`:""}
   </div>`;
 }
 function renderScenarios(sc){
@@ -1010,33 +1044,45 @@ function renderJournal(snaps,H){
   if(!snaps.length){w.innerHTML='<div class="card" style="display:block;color:var(--mut)">Noch keine auswertbaren Einträge.</div>';return;}
 
   const today=dayKey(Date.now());
-  // Aggregation je Horizont, gruppiert nach Haltung (Akkumulation/Neutral/Distribution)
-  const agg={};JHORIZONS.forEach(([k])=>agg[k]={acc:[],neu:[],dist:[]});
-  const matCount={"1W":0,"1M":0,"3M":0};
-  snaps.forEach(s=>{
-    const p0=close[s.date]!=null?close[s.date]:s.btc_usd;if(p0==null)return;
+  /* Episoden-Bildung (Council 2.7.): aufeinanderfolgende Aufzeichnungstage mit
+     gleicher Haltung sind EINE Beobachtung, nicht viele — dieselbe
+     Autokorrelations-Korrektur wie in der Szenario-Engine. Lücken bis 3 Tage
+     (Cockpit nicht geöffnet) zählen als zusammenhängend. Gemessen wird ab dem
+     ersten Tag jeder Episode. */
+  const asc=snaps.slice().sort((a,b)=>a.date<b.date?-1:1);
+  const eps=[];let cur=null;
+  asc.forEach(s=>{
     const st=stanceOf(s.composite);
+    const gap=cur?Math.round((Date.parse(s.date)-Date.parse(cur.last))/864e5):null;
+    if(cur&&cur.st===st&&gap!=null&&gap<=3){cur.last=s.date;cur.days++;}
+    else{cur={st,first:s.date,last:s.date,days:1,firstSnap:s};eps.push(cur);}
+  });
+  // Aggregation je Horizont über Episoden-Erstage, gruppiert nach Haltung
+  const agg={};JHORIZONS.forEach(([k])=>agg[k]={acc:[],neu:[],dist:[]});
+  const epDays={acc:0,neu:0,dist:0};
+  eps.forEach(ep=>{
+    epDays[ep.st]+=ep.days;
+    const s=ep.firstSnap;const p0=close[s.date]!=null?close[s.date]:s.btc_usd;if(p0==null)return;
     JHORIZONS.forEach(([k,d])=>{
       const p1=close[addDays(s.date,d)];
-      if(p1!=null){agg[k][st].push((p1-p0)/p0*100);matCount[k]++;}
+      if(p1!=null)agg[k][ep.st].push((p1-p0)/p0*100);
     });
   });
 
-  const firstDate=snaps[snaps.length-1].date;
+  const firstDate=asc[0].date;
   let h=`<div class="card" style="display:block">
-    <div class="nm" style="margin-bottom:6px">Aufzeichnung seit ${fmtDate(firstDate)} · ${snaps.length} ${snaps.length===1?"Tag":"Tage"} erfasst</div>`;
+    <div class="nm" style="margin-bottom:6px">Aufzeichnung seit ${fmtDate(firstDate)} · ${snaps.length} ${snaps.length===1?"Tag":"Tage"} · ${eps.length} ${eps.length===1?"Episode":"Episoden"}</div>`;
 
-  // Kalibrierungs-Aussagen, sobald genug reif (>=5 reife Tage je Horizont)
+  // Kalibrierungs-Aussagen: erst ab >=3 unabhängigen, reifen Akkumulations-Episoden.
+  // Vorher wäre es Statistik-Kosmetik mit effektivem n von 1-2.
   let anyAgg=false;
   JHORIZONS.forEach(([k,d])=>{
-    if(matCount[k]>=5){
-      const a=agg[k].acc;
-      if(a.length>=3){
-        anyAgg=true;
-        const pos=Math.round(a.filter(x=>x>0).length/a.length*100);
-        const md=median(a);
-        h+=`<div class="jagg">Von ${a.length} Akkumulations-Tagen (Strom &lt;40) war BTC ${k} später in <b style="color:${pos>=50?'var(--teal)':'var(--coral)'}">${pos}%</b> der Fälle höher · Median ${md>=0?"+":""}${md.toFixed(1)}%</div>`;
-      }
+    const a=agg[k].acc;
+    if(a.length>=3){
+      anyAgg=true;
+      const pos=Math.round(a.filter(x=>x>0).length/a.length*100);
+      const md=median(a);
+      h+=`<div class="jagg">Von ${a.length} unabhängigen Akkumulations-Episoden (aus ${epDays.acc} Tagen, Strom &lt;40) war BTC ${k} später in <b style="color:${pos>=50?'var(--teal)':'var(--coral)'}">${pos}%</b> der Fälle höher · Median ${md>=0?"+":""}${md.toFixed(1)}% <span style="color:var(--mut)">· gemessen ab Episoden-Start</span></div>`;
     }
   });
   if(!anyAgg){
@@ -1046,8 +1092,21 @@ function renderJournal(snaps,H){
   }
   h+=`</div>`;
 
-  // Einträge (neueste 8) mit reifen Ergebnissen bzw. Reife-Status
+  // Entscheidungslog: EIN Tipp, nur für heute, nicht rückwirkend (Process over Results).
+  const acts=store.get("pr_actions",{});const todayAct=acts[today]||null;
+  h+=`<div class="card" style="display:block">
+    <div class="actrow" style="margin-top:0;padding-top:0;border-top:none">
+      <span class="alab">Was hast du <b style="color:var(--ink)">heute</b> getan?</span>
+      <button class="actbtn${todayAct==="buy"?" on":""}" data-act="buy">Gekauft</button>
+      <button class="actbtn${todayAct==="none"?" on":""}" data-act="none">Nichts</button>
+      <button class="actbtn${todayAct==="sell"?" on sell":""}" data-act="sell">Verkauft</button>
+    </div>
+    <div class="shint" style="margin:8px 0 0">Nur der heutige Tag ist eintragbar — rückwirkende Selbstbewertung wäre Selbstbetrug. Erneutes Tippen löscht den Eintrag.</div>
+  </div>`;
+
+  // Einträge (neueste 8) mit reifen Ergebnissen bzw. Reife-Status + eigener Handlung
   const colBand=c=>c<40?"var(--teal)":c>60?"var(--coral)":"var(--amber)";
+  const actMark=a=>a==="buy"?'<span class="ja buy" title="Gekauft">K</span>':a==="sell"?'<span class="ja sell" title="Verkauft">V</span>':a==="none"?'<span class="ja none" title="Nichts getan">·</span>':'<span class="ja"></span>';
   snaps.slice(0,8).forEach(s=>{
     const p0=close[s.date]!=null?close[s.date]:s.btc_usd;
     let tags="";
@@ -1056,9 +1115,16 @@ function renderJournal(snaps,H){
       if(p1!=null&&p0!=null){const r=(p1-p0)/p0*100;tags+=`<span class="ht ${r>=0?"up":"dn"}">${k} ${r>=0?"+":""}${r.toFixed(1)}%</span>`;}
       else{tags+=`<span class="ht">${k} –</span>`;}
     });
-    h+=`<div class="jrow"><span class="jd">${fmtDate(s.date)}</span><span class="jc" style="color:${colBand(s.composite)}">${s.composite}</span><span class="jh">${tags}</span></div>`;
+    h+=`<div class="jrow"><span class="jd">${fmtDate(s.date)}</span><span class="jc" style="color:${colBand(s.composite)}">${s.composite}</span>${actMark(acts[s.date])}<span class="jh">${tags}</span></div>`;
   });
   w.innerHTML=h;
+  // Ein-Tipp-Handler (nur heute; erneuter Tipp auf die aktive Wahl löscht sie)
+  w.querySelectorAll(".actbtn").forEach(b=>b.addEventListener("click",()=>{
+    const A=store.get("pr_actions",{});const v=b.dataset.act;
+    if(A[today]===v)delete A[today];else A[today]=v;
+    store.set("pr_actions",A);renderJournal(snaps,H);
+    toast(A[today]?"Notiert":"Eintrag entfernt");
+  }));
 }
 
 /* ---------------- Sheets ---------------- */
@@ -1121,20 +1187,55 @@ function openSettings(){
   $("s_realized").value=CFG.realized??"";$("s_sth").value=CFG.sth??"";
   $("s_etf").value=CFG.etf??"";$("s_turn").value=CFG.turn??"";$("s_turntype").value=CFG.turntype||"Top";
   $("s_worker").value=CFG.workerUrl??"";
+  $("s_secret").value=CFG.snapSecret??"";
+  const ls=store.get("pr_lastsnap",null);
+  $("snapStatus").innerHTML=CFG.workerUrl?(ls?`Letzter erfolgreicher Snapshot: <b>${fmtDate(ls)}</b>${ls===dayKey(Date.now())?" (heute)":""}`:"Noch kein Snapshot gespeichert."):"";
   openSheet($("setSheet"));
 }
 $("settingsBtn").addEventListener("click",openSettings);
 $("closeSetBtn").addEventListener("click",closeSheet);
 $("saveBtn").addEventListener("click",()=>{
   const num=v=>v===""||v==null?null:parseFloat(v);
-  const nr=num($("s_realized").value), ns=num($("s_sth").value);
+  const nr=num($("s_realized").value), ns=num($("s_sth").value), ne=num($("s_etf").value);
   if(nr!==CFG.realized)CFG.realizedTs=nr==null?null:Date.now();
   if(ns!==CFG.sth)CFG.sthTs=ns==null?null:Date.now();
-  CFG.realized=nr;CFG.sth=ns;
-  CFG.etf=$("s_etf").value===""?null:parseFloat($("s_etf").value);
+  if(ne!==CFG.etf)CFG.etfTs=ne==null?null:Date.now();   // gleiche Alterslogik wie Realized/STH
+  CFG.realized=nr;CFG.sth=ns;CFG.etf=ne;
   CFG.turn=$("s_turn").value||null;CFG.turntype=$("s_turntype").value;
   CFG.workerUrl=($("s_worker").value||"").trim().replace(/\/$/,"")||null;
+  CFG.snapSecret=($("s_secret").value||"").trim()||null;
   store.set("pr_cfg",CFG);closeSheet();render();toast("Gespeichert");
+});
+
+/* ---------------- Backup: Export / Import ----------------
+   Alles Lokale in eine JSON-Datei — die Historie seit 2017 und der
+   Entscheidungslog leben sonst nur in einem einzigen Browser-Cache. */
+const BK_KEYS=["pr_cfg","pr_hist","pr_cache","pr_actions","pr_lastsnap","pr_lastvisit"];
+$("exportBtn").addEventListener("click",()=>{
+  const out={_pantaRey:1,_exported:new Date().toISOString()};
+  BK_KEYS.forEach(k=>{const v=localStorage.getItem(k);if(v!=null)out[k]=v;});
+  const blob=new Blob([JSON.stringify(out)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="panta-rey-backup-"+dayKey(Date.now())+".json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  toast("Backup exportiert");
+});
+$("importBtn").addEventListener("click",()=>$("importFile").click());
+$("importFile").addEventListener("change",e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const j=JSON.parse(rd.result);
+      if(!j||j._pantaRey!==1)throw new Error("kein Panta-Rey-Backup");
+      let n=0;BK_KEYS.forEach(k=>{if(typeof j[k]==="string"){localStorage.setItem(k,j[k]);n++;}});
+      toast(n+" Datensätze importiert — lade neu …");
+      setTimeout(()=>location.reload(),900);
+    }catch(err){toast("Import fehlgeschlagen: keine gültige Backup-Datei");}
+  };
+  rd.readAsText(f);
+  e.target.value="";
 });
 
 /* ---------------- Toast ---------------- */
