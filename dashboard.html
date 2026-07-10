@@ -307,7 +307,7 @@
 
   <div style="height:6px"></div>
   <div class="field"><label>Worker-URL <small>(für Makro-Linse · Phase 1b)</small></label><input id="s_worker" type="url" inputmode="url" placeholder="https://panta-rey.dein-name.workers.dev"></div>
-  <div class="shint">Leer lassen = nur Crypto-Daten (Phase 1a). Mit Worker-URL kommen Dollar, Zinsen, S&amp;P-Korrelation, Gold und Liquidität dazu, und dein Tages-Snapshot wird gespeichert.</div>
+  <div class="shint">Leer lassen = nur Crypto-Daten (Phase 1a). Mit Worker-URL kommen Dollar, Zinsen, S&amp;P-Korrelation, Liquidität und der Gold-Block (Preis, Trendabstand, Realzins) dazu, und dein Tages-Snapshot wird gespeichert.</div>
   <div class="field"><label>Snapshot-Secret <small>(optional · schützt das Journal vor fremden Schreibzugriffen)</small></label><input id="s_secret" type="text" autocomplete="off" placeholder="leer = wie bisher"></div>
   <div class="shint">Wird als Header <b>X-Panta-Key</b> mitgesendet. Nur eintragen, wenn der Worker das Secret ebenfalls prüft — sonst leer lassen.</div>
   <div class="shint" id="snapStatus" style="margin-top:4px"></div>
@@ -673,7 +673,8 @@ async function loadMarket(){
       m.macroTs=Date.now();
       if(M.dxy)m.ind.dxy={v:M.dxy.latest,chg:M.dxy.chg30};
       if(M.us10y)m.ind.us10y={v:M.us10y.latest,chg:M.us10y.chg30};
-      if(M.gold)m.ind.gold={v:M.gold.latest,chg:M.gold.chg30};
+      if(M.gold)m.ind.gold={v:M.gold.latest,chg:M.gold.chg30,r200:(M.gold.r200!=null?M.gold.r200:null)};
+      if(M.tips)m.ind.tips={v:M.tips.latest,chg:M.tips.chg30};
       if(M.m2)m.ind.m2={v:M.m2.latest,chg:M.m2.chgPrev};
       if(M.sp500){
         const ser=M.sp500.series||[];let tr=null;
@@ -770,7 +771,9 @@ const EB={
   us10y:{t:"US 10-Jahres-Rendite",u:"%",what:"Die Rendite 10-jähriger US-Staatsanleihen — der wichtigste Zins für Risk-Assets.",hist:"Steigende Renditen = strengeres Umfeld, Gegenwind für Risk-Assets wie BTC. Fallende = lockereres Umfeld, Rückenwind."},
   sp500:{t:"S&amp;P 500 (30-Tage-Trend)",u:"%",what:"Wie sich der S&P 500 in den letzten 30 Tagen bewegt hat — der breiteste Risk-Asset-Massstab. Dieser Wert (nicht die Korrelation) fliesst in den Makro-Gegenwind-Score ein.",hist:"Steigender S&P = Rückenwind fürs allgemeine Risikoklima, fallender = Gegenwind. Nur relevant für BTC, wenn die Korrelation gerade hoch ist — siehe Karte daneben."},
   spcorr:{t:"BTC ↔ S&P-Korrelation",u:"",what:"Wie stark BTC sich in den letzten ~30 Tagen mit dem S&P 500 mitbewegt hat (−1 bis +1). Client-seitig berechnet.",hist:"Hohe positive Korrelation = BTC handelt wie ein Risk-Asset, dann zählt die Aktienrichtung. Nahe null = BTC entkoppelt, Crypto-interne Signale dominieren."},
-  gold:{t:"Gold",u:"USD",what:"Goldpreis je Unze (London-Fixing via FRED). Vergleichsanker für „digitales Gold\".",hist:"Steigendes Gold zeigt Store-of-Value-Nachfrage und Misstrauen ins Papiergeld — Umfeld, in dem BTC oft mitläuft. Kontext."},
+  gold:{t:"Goldpreis",u:"USD",what:"Gold-Spot je Feinunze (XAU/USD via Stooq — die frühere FRED-Serie GOLDAMGBD228NLBM wurde von FRED eingestellt). Doppelrolle: Kontext für BTC („digitales Gold\") und Basiswert des Gold-Blocks für die eigene Gold-Position.",hist:"Steigendes Gold zeigt Store-of-Value-Nachfrage und Misstrauen ins Papiergeld — Umfeld, in dem BTC oft mitläuft. Für die Gold-Position selbst zählen die zwei Karten daneben: Trendabstand und Realzins. Chip-Totzone: ±1% über 30 Tage gilt als seitwärts."},
+  gold200:{t:"Gold ÷ 200-Tage-Schnitt",u:"",what:"Goldpreis geteilt durch seinen 200-Tage-Durchschnitt — dasselbe Konzept wie das Mayer Multiple bei BTC, nur für Gold. 1.00 = genau am Trend, serverseitig aus ~300 Handelstagen berechnet.",hist:"Gold pendelt deutlich enger um seinen Trend als BTC: historisch meist zwischen ~0.9 und ~1.15. Deutlich höhere Werte traten in Übertreibungsphasen auf (1980, 2011). Die Chip-Bänder (<0.95 unter Trend · ≤1.10 am Trend · ≤1.25 gestreckt · darüber stark gestreckt) sind Faustregeln, statistisch nicht belastbar — Kontext, kein Signal. Fliesst weder in den Strom- noch in den Makro-Score."},
+  tips:{t:"US-Realzins 10J (TIPS)",u:"%",what:"Rendite 10-jähriger inflationsgeschützter US-Staatsanleihen (FRED DFII10) — der Zins nach Abzug der Inflationserwartung.",hist:"Der historisch stabilste Gold-Treiber: Gold zahlt keinen Zins und konkurriert darum mit dem Realzins. Fallender Realzins = Rückenwind für Gold, steigender = Gegenwind. Die inverse Beziehung war 2004–2021 bemerkenswert eng, seit 2022 lockerer (u.a. Zentralbankkäufe) — Richtung zählt, nicht Präzision. Chip-Totzone: ±0.10 pp über 30 Tage. Kontext für Gold, fliesst nicht in den Makro-Score für BTC."},
   m2:{t:"Geldmenge M2",u:"",what:"Die breite US-Geldmenge (FRED M2SL) — ein Mass für die Liquidität im System.",hist:"Wachsende Liquidität war langfristig der stärkste Rückenwind für BTC. Schrumpfende Geldmenge = Gegenwind. Monatlich aktualisiert, träge."},
   macro:{t:"Makro-Umfeld",u:"",what:"Fasst Dollar, Zinsen, S&P-Trend und Liquidität zu einem Gegenwind/Rückenwind-Score zusammen.",hist:"Bewusst NICHT im Strom-Score — das BTC-Makro-Verhältnis ist zu instabil, um es in eine Bull/Bear-Zahl zu mitteln. Es steuert stattdessen den Klartext und später die Szenarien."},
   scenario:{t:"Wie die Szenarien entstehen",u:"",what:"Kein Kursziel und keine Vorhersage. Die App sucht in der BTC-Historie alle Tage, an denen Mayer, Fear&Greed und Funding in ähnlichen Bereichen lagen wie heute, und zeigt, wie sich der Kurs danach entwickelt hat.",hist:"Entscheidend: zusammenhängende Treffer-Tage werden zu einer Episode zusammengefasst (ein 60-Tage-Bärenmarkt = EINE Episode, nicht 60 Fälle) und ab dem ersten Tag gemessen. So zählt jede unabhängige historische Situation nur einmal. Reicht die Zahl der Episoden nicht, lockert die App die Bedingungen (erst Funding weg, dann FNG). BTC hat nur ~8 Jahre Historie — bei wenigen Episoden sind die Zahlen grobe Orientierung, keine belastbare Statistik. Die Zeile „Schlechteste Episode“ zeigt bewusst den historisch übelsten Verlauf: Der Median beschreibt den typischen Fall, aber BTC lebt in den Rändern — die Episode, die weh tut, verschwindet im Median."},
@@ -926,10 +929,14 @@ function renderTiming(){
 /* ---------------- Makro-Linse ---------------- */
 function chipHead(o,liq){if(!o)return'<span class="regime rg-mut">–</span>';return o.st==="g"?'<span class="regime rg-teal">'+(liq?"wächst":"Rücken")+'</span>':o.st==="r"?'<span class="regime rg-coral">'+(liq?"flach":"Gegen")+'</span>':'<span class="regime rg-amber">neutral</span>';}
 function chipCorr(v){const a=Math.abs(v);return a<0.3?'<span class="regime rg-blue">entkoppelt</span>':v>0?'<span class="regime rg-amber">wie Risk-Asset</span>':'<span class="regime rg-mut">gegenläufig</span>';}
+/* Gold-Block-Chips — Kontext für Gold selbst, NICHT für BTC. Fliesst nirgends in einen Score. */
+function chipGoldTrend(chg){if(chg==null)return'<span class="regime rg-mut">–</span>';return chg>1?'<span class="regime rg-teal">steigt</span>':chg<-1?'<span class="regime rg-coral">fällt</span>':'<span class="regime rg-mut">seitwärts</span>';}
+function chipGold200(r){return r<0.95?'<span class="regime rg-teal">unter Trend</span>':r<=1.10?'<span class="regime rg-mut">am Trend</span>':r<=1.25?'<span class="regime rg-amber">gestreckt</span>':'<span class="regime rg-coral">stark gestreckt</span>';}
+function chipTips(chg){if(chg==null)return'<span class="regime rg-mut">–</span>';return chg<-0.10?'<span class="regime rg-teal">Gold-Rücken</span>':chg>0.10?'<span class="regime rg-coral">Gold-Gegen</span>':'<span class="regime rg-amber">neutral</span>';}
 function renderMacro(){
   const w=$("macroWrap");if(!w)return;const I=MK?MK.ind:{};const C=LC;
   if(!CFG.workerUrl){
-    w.innerHTML='<div class="card" style="display:block"><div class="nm" style="margin-bottom:4px">Makro-Linse inaktiv</div><div class="sub" style="line-height:1.5">Worker-URL im Zahnrad eintragen, um Dollar, Zinsen, S&amp;P-Korrelation, Gold und Liquidität zu laden. Bis dahin läuft das Cockpit voll mit Crypto-Daten.</div></div>';
+    w.innerHTML='<div class="card" style="display:block"><div class="nm" style="margin-bottom:4px">Makro-Linse inaktiv</div><div class="sub" style="line-height:1.5">Worker-URL im Zahnrad eintragen, um Dollar, Zinsen, S&amp;P-Korrelation, Liquidität und den Gold-Block zu laden. Bis dahin läuft das Cockpit voll mit Crypto-Daten.</div></div>';
     return;
   }
   let h="";
@@ -939,8 +946,13 @@ function renderMacro(){
   if(I.us10y)h+=regCard("us10y","US 10J-Zins",I.us10y.v.toFixed(2)+"%",chipHead(C&&C.macro&&C.macro.us10y));
   if(I.sp500&&I.sp500.trend!=null){const t=I.sp500.trend;h+=regCard("sp500","S&amp;P 500 (30T-Trend)",(t>=0?"+":"")+t.toFixed(1)+"%",t>0?'<span class="regime rg-teal">Rücken</span>':'<span class="regime rg-coral">Gegen</span>');}
   if(I.spcorr&&I.spcorr.v!=null)h+=regCard("spcorr","S&amp;P-Korrelation",I.spcorr.v.toFixed(2),chipCorr(I.spcorr.v));
-  if(I.gold)h+=regCard("gold","Gold","$"+fmtUSD(I.gold.v),'<span class="regime rg-blue">Kontext</span>');
   if(I.m2)h+=regCard("m2","Liquidität M2","$"+(I.m2.v/1000).toFixed(1)+"T",chipHead(C&&C.macro&&C.macro.m2,true));
+  if(I.gold){
+    h+='<div class="sub" style="margin:10px 2px 5px;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--mut)">Gold-Block · Kontext für Gold, nicht BTC</div>';
+    h+=regCard("gold","Goldpreis","$"+fmtUSD(I.gold.v),chipGoldTrend(I.gold.chg));
+    if(I.gold.r200!=null)h+=regCard("gold200","Gold ÷ 200T-Schnitt",I.gold.r200.toFixed(2),chipGold200(I.gold.r200));
+    if(I.tips)h+=regCard("tips","US-Realzins 10J",I.tips.v.toFixed(2)+"%",chipTips(I.tips.chg));
+  }
   if(!h)h='<div class="card" style="color:var(--mut)">Makro-Daten werden geladen … oder Worker nicht erreichbar.</div>';
   w.innerHTML=h;
 }
@@ -950,7 +962,7 @@ function buildSnapshot(){
   const m=MK,C=LC;if(!m||!C)return null;const I=m.ind;
   const g=o=>o&&o.v!=null?o.v:null;
   return {date:new Date().toISOString().slice(0,10),btc_usd:m.price,
-    indicators:{mayer:g(I.mayer),fng:g(I.fng),rsi:g(I.rsi),er:(I.er4&&I.er4.v!=null?I.er4.v:g(I.er)),funding:g(I.funding),dvol:g(I.dvol),dom:g(I.dom),cbprem:g(I.cbprem),dxy:g(I.dxy),us10y:g(I.us10y),spcorr:g(I.spcorr)},
+    indicators:{mayer:g(I.mayer),fng:g(I.fng),rsi:g(I.rsi),er:(I.er4&&I.er4.v!=null?I.er4.v:g(I.er)),funding:g(I.funding),dvol:g(I.dvol),dom:g(I.dom),cbprem:g(I.cbprem),dxy:g(I.dxy),us10y:g(I.us10y),spcorr:g(I.spcorr),gold:g(I.gold),gold_r200:(I.gold&&I.gold.r200!=null?I.gold.r200:null),tips:g(I.tips)},
     lens_scores:{valuation:C.lens.val,positioning:C.lens.pos},
     macro_score:C.macroScore,composite:C.comp.score};
 }
@@ -1144,7 +1156,7 @@ function openEB(id){
   if(lblMap[id])lbl=lblMap[id];
   try{const v=map[id]&&map[id]();if(v)val=v;}catch(_){}
   $("ebTitle").textContent=e.t;
-  $("ebMeta").textContent=({mayer:"Bewertung",drawdown:"Bewertung",realized:"Bewertung",fng:"Positionierung",funding:"Positionierung",cbprem:"Positionierung",er:"Kontext · Regime",dvol:"Kontext · Regime",align:"Kontext · Regime",dom:"Kontext · Regime",rsi:"Kontext · Regime",phase:"Kontext · Regime",bewertung:"Sub-Linse · fliesst in den Strom",positionierung:"Sub-Linse · fliesst in den Strom",anker:"Manuell",dxy:"Makro · Kontext",sp500:"Makro · Kontext",us10y:"Makro · Kontext",spcorr:"Makro · Kontext",gold:"Makro · Kontext",m2:"Makro · Kontext",macro:"Makro · Kontext",scenario:"Methodik",journal:"Methodik"})[id]||"";
+  $("ebMeta").textContent=({mayer:"Bewertung",drawdown:"Bewertung",realized:"Bewertung",fng:"Positionierung",funding:"Positionierung",cbprem:"Positionierung",er:"Kontext · Regime",dvol:"Kontext · Regime",align:"Kontext · Regime",dom:"Kontext · Regime",rsi:"Kontext · Regime",phase:"Kontext · Regime",bewertung:"Sub-Linse · fliesst in den Strom",positionierung:"Sub-Linse · fliesst in den Strom",anker:"Manuell",dxy:"Makro · Kontext",sp500:"Makro · Kontext",us10y:"Makro · Kontext",spcorr:"Makro · Kontext",gold:"Makro · Gold-Block",gold200:"Makro · Gold-Block",tips:"Makro · Gold-Block",m2:"Makro · Kontext",macro:"Makro · Kontext",scenario:"Methodik",journal:"Methodik"})[id]||"";
   $("ebWhat").textContent=e.what;
   $("ebHist").textContent=e.hist;
   $("ebVal").textContent=val;$("ebValLbl").textContent=lbl;
@@ -1174,7 +1186,9 @@ function ebNow(id){const m=MK;if(!m)return"—";const I=m.ind;
     case"sp500":{if(!I.sp500||I.sp500.trend==null)return"—";return I.sp500.trend>0?"S&P steigt über die letzten 30 Tage (+"+I.sp500.trend.toFixed(1)+"%) — stützt das Risiko-Umfeld.":"S&P fällt über die letzten 30 Tage ("+I.sp500.trend.toFixed(1)+"%) — Gegenwind fürs Risiko-Umfeld.";}
     case"us10y":if(!I.us10y)return"—";return I.us10y.chg>0?"Renditen steigen — strengeres Umfeld, Gegenwind.":"Renditen fallen — lockereres Umfeld, Rückenwind.";
     case"spcorr":if(!I.spcorr||I.spcorr.v==null)return"—";return Math.abs(I.spcorr.v)<0.3?"BTC ist gerade von Aktien entkoppelt — Crypto-interne Signale zählen stärker.":(I.spcorr.v>0?"BTC läuft gerade wie ein Risk-Asset — auf den S&P schauen.":"BTC läuft gegenläufig zu Aktien.");
-    case"gold":if(!I.gold)return"—";return I.gold.chg>0?"Gold steigt — Store-of-Value-Nachfrage aktiv.":"Gold seitwärts/fallend.";
+    case"gold":if(!I.gold)return"—";return I.gold.chg>1?"Gold steigt (+"+I.gold.chg.toFixed(1)+"% / 30T) — Store-of-Value-Nachfrage aktiv.":I.gold.chg<-1?"Gold fällt ("+I.gold.chg.toFixed(1)+"% / 30T).":"Gold seitwärts ("+(I.gold.chg>=0?"+":"")+I.gold.chg.toFixed(1)+"% / 30T).";
+    case"gold200":{if(!I.gold||I.gold.r200==null)return"—";const r=I.gold.r200;return r<0.95?"Gold notiert "+((1-r)*100).toFixed(0)+"% unter seinem 200-Tage-Trend — historisch eher günstige Zone (Faustregel).":r<=1.10?"Gold liegt nahe am 200-Tage-Trend ("+r.toFixed(2)+").":"Gold notiert "+((r-1)*100).toFixed(0)+"% über seinem 200-Tage-Trend — gestreckt (Faustregel).";}
+    case"tips":if(!I.tips)return"—";return I.tips.chg<-0.10?"Realzins fällt ("+I.tips.chg.toFixed(2)+" pp / 30T) — Rückenwind für Gold.":I.tips.chg>0.10?"Realzins steigt (+"+I.tips.chg.toFixed(2)+" pp / 30T) — Gegenwind für Gold.":"Realzins seitwärts (aktuell "+I.tips.v.toFixed(2)+"%) — neutral für Gold.";
     case"m2":if(!I.m2)return"—";return I.m2.chg>0?"Geldmenge wächst — mehr Liquidität, langfristig Rückenwind.":"Geldmenge stagniert/schrumpft — weniger Liquidität.";
     case"macro":{if(!LC||LC.macroScore==null)return"Makro-Linse nicht aktiv (Worker-URL in den Einstellungen eintragen).";const v=LC.macroScore;return v<40?"Aktuell Rückenwind fürs Umfeld ("+Math.round(v)+"/100).":v<60?"Neutrales Makro-Umfeld ("+Math.round(v)+"/100).":"Aktuell Gegenwind fürs Umfeld ("+Math.round(v)+"/100).";}
   }return"—";
