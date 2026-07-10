@@ -53,6 +53,13 @@
   .iconbtn.spin svg{animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
 
+  /* Asset-Tabs (BTC / Gold) */
+  .tabbar{display:flex;gap:8px;margin:14px 0 4px}
+  .tab{flex:1;padding:9px 0;border-radius:12px;border:1px solid var(--line);background:var(--card);
+    color:var(--mut);font-size:13px;font-weight:700;letter-spacing:.08em;cursor:pointer;transition:.15s}
+  .tab.on{background:var(--card2);color:var(--ink);border-color:#2a3a52}
+  .tab:active{transform:scale(.97)}
+
   /* Hero gauge */
   .hero{
     background:linear-gradient(180deg,var(--card),#101824);
@@ -219,6 +226,15 @@
     </div>
   </header>
 
+  <!-- ASSET-TABS -->
+  <div class="tabbar">
+    <button class="tab on" id="tabBTC">₿ BTC</button>
+    <button class="tab" id="tabGold">◉ Gold</button>
+  </div>
+
+  <!-- ================= SEITE 1: BTC (unverändert) ================= -->
+  <div id="pageBTC">
+
   <!-- HERO -->
   <div class="hero">
     <div class="eyebrow">Markt-Strom · Akkumulation → Distribution</div>
@@ -270,10 +286,44 @@
   <div class="sec"><span class="t">Journal · Lerneffekt</span><span class="ln"></span><button class="qbtn" data-eb="journal" style="width:20px;height:20px;font-size:11px">?</button></div>
   <div id="journalWrap"><div class="card" style="display:block;color:var(--mut)">Wird geladen …</div></div>
 
+  </div><!-- /pageBTC -->
+
+  <!-- ================= SEITE 2: GOLD ================= -->
+  <div id="pageGold" style="display:none">
+
+  <!-- GOLD HERO -->
+  <div class="hero">
+    <div class="eyebrow">Gold-Strom · günstig → gestreckt</div>
+    <div class="gaugewrap">
+      <svg viewBox="0 0 300 168" id="gaugeG"></svg>
+      <div class="cscore" id="cscoreG">–</div>
+    </div>
+    <div class="ends"><span>0 · günstig</span><span>gestreckt · 100</span></div>
+    <div class="clabel" id="clabelG">Lade Daten …</div>
+    <div class="ctext" id="ctextG">Die Gold-Seite lebt komplett von Worker-Daten (Stooq + FRED). Aktualisieren tippen.</div>
+
+    <div class="price">
+      <span class="big" id="priceG">–</span>
+      <span class="chip" id="chG30">30T –</span>
+    </div>
+  </div>
+
+  <!-- GOLD BEWERTUNG -->
+  <div class="sec"><span class="t">Bewertungs-Achse</span><span class="ln"></span><span class="hint">fliesst in den Gold-Strom</span></div>
+  <div id="goldTier1"></div>
+
+  <!-- GOLD UMFELD -->
+  <div class="sec"><span class="t">Umfeld · Treiber</span><span class="ln"></span><button class="qbtn" data-eb="goldmacro" style="width:20px;height:20px;font-size:11px">?</button></div>
+  <div id="goldMacroWrap"></div>
+
+  <div style="margin-top:16px;font-size:11px;color:#3a4452;text-align:center;line-height:1.5">Zwei Bewertungs- und drei Umfeld-Signale. Kein Sentiment, kein Funding — für Gold gibt es diese Daten nicht gratis. Bewusst weniger als BTC statt Pseudo-Tiefe.</div>
+
+  </div><!-- /pageGold -->
+
   <footer>
     <div id="lastref">noch nicht aktualisiert</div>
-    <div class="srcs">Binance · alternative.me · Deribit · Coinbase · CoinGecko</div>
-    <div style="margin-top:8px;color:#3a4452">Muster &amp; Schwellen aus wenigen BTC-Zyklen — Orientierung, keine Prognose.</div>
+    <div class="srcs" id="srcline">Binance · alternative.me · Deribit · Coinbase · CoinGecko</div>
+    <div style="margin-top:8px;color:#3a4452">Muster &amp; Schwellen aus wenigen Zyklen — Orientierung, keine Prognose.</div>
   </footer>
 </div>
 
@@ -673,7 +723,7 @@ async function loadMarket(){
       m.macroTs=Date.now();
       if(M.dxy)m.ind.dxy={v:M.dxy.latest,chg:M.dxy.chg30};
       if(M.us10y)m.ind.us10y={v:M.us10y.latest,chg:M.us10y.chg30};
-      if(M.gold)m.ind.gold={v:M.gold.latest,chg:M.gold.chg30,r200:(M.gold.r200!=null?M.gold.r200:null)};
+      if(M.gold)m.ind.gold={v:M.gold.latest,chg:M.gold.chg30,r200:(M.gold.r200!=null?M.gold.r200:null),dd:(M.gold.dd!=null?M.gold.dd:null)};
       if(M.tips)m.ind.tips={v:M.tips.latest,chg:M.tips.chg30};
       if(M.m2)m.ind.m2={v:M.m2.latest,chg:M.m2.chgPrev};
       if(M.sp500){
@@ -767,14 +817,16 @@ const EB={
   positionierung:{t:"Positionierung (Sub-Linse)",u:"",what:"Fasst zusammen, wie die Marktteilnehmer aufgestellt sind — ängstlich/unterinvestiert oder gierig/übergehebelt. Aus Fear & Greed, Funding-Rate und Coinbase-Premium.",hist:"Die schnelle, sentiment-getriebene Seite. Tief = Angst und wenig Hebel (konträr-bullisch), hoch = Gier und viel Hebel (Vorsicht)."},
   anker:{t:"Zyklus-Anker",u:"",what:"Zwei On-Chain-Bewertungslinien, die du manuell pflegst: Realized Price (Durchschnitts-Einstand aller Coins) und STH Realized Price (Kostenbasis der jungen Coins).",hist:"Liegt der Preis unter einer Linie, ist der jeweilige Halter-Typ im Schnitt im Verlust — historisch Kapitulations- und Akkumulationszonen. Es gibt keine kostenlose Live-API dafür, darum trägst du sie ~monatlich von Hand ein (Into the Cryptoverse / CheckOnChain). Der 200-Wochen-Schnitt ist jetzt automatisch in der Markt-Phase."},
   phase:{t:"Markt-Phase (50W / 200W)",u:"",what:"Zwei wöchentliche Durchschnitte teilen den Markt in drei Zonen: über dem 50-Wochen-Schnitt (Bull-Linie) = Bulle; darunter, aber über dem 200-Wochen-Schnitt (Cheap-Linie) = Bär; unter dem 200-Wochen-Schnitt = Akkumulation, billig.",hist:"Mechanische Regel, keine Prognose. Über die letzten Zyklen war „unter dem 200W-Schnitt“ verlässlich eine günstige Akkumulationszone und „über dem 50W-Schnitt“ die Bestätigung eines neuen Bullenmarkts; dazwischen liegt die zähe Bär-/No-Trade-Phase. Bewusst NICHT im Strom-Score — misst fast dasselbe wie Mayer, würde also doppelt zählen."},
-  dxy:{t:"US-Dollar (breit)",u:"",what:"Stärke des US-Dollars, gemessen am breiten handelsgewichteten Index DTWEXBGS (via FRED). Achtung: das ist NICHT der bekannte ICE-DXY (~98–100), sondern ein breiterer Korb mit anderem Bezugswert (~119) — beide Werte also nicht direkt vergleichen, nur die Richtung zählt.",hist:"BTC bewegt sich meist invers zum Dollar: starker Dollar = Gegenwind, schwacher Dollar = Rückenwind. Wir nutzen den breiten Index, weil es keine kostenlose Live-Quelle für den echten DXY gibt. Reiner Kontext, fliesst nicht in den Strom-Score."},
+  dxy:{t:"US-Dollar (breit)",u:"",what:"Stärke des US-Dollars, gemessen am breiten handelsgewichteten Index DTWEXBGS (via FRED). Achtung: das ist NICHT der bekannte ICE-DXY (~98–100), sondern ein breiterer Korb mit anderem Bezugswert (~119) — beide Werte also nicht direkt vergleichen, nur die Richtung zählt.",hist:"BTC bewegt sich meist invers zum Dollar: starker Dollar = Gegenwind, schwacher Dollar = Rückenwind. Gilt für Gold gleichsinnig — beide sind Dollar-Alternativen. Wir nutzen den breiten Index, weil es keine kostenlose Live-Quelle für den echten DXY gibt. Reiner Kontext, fliesst nicht in den Strom-Score."},
   us10y:{t:"US 10-Jahres-Rendite",u:"%",what:"Die Rendite 10-jähriger US-Staatsanleihen — der wichtigste Zins für Risk-Assets.",hist:"Steigende Renditen = strengeres Umfeld, Gegenwind für Risk-Assets wie BTC. Fallende = lockereres Umfeld, Rückenwind."},
   sp500:{t:"S&amp;P 500 (30-Tage-Trend)",u:"%",what:"Wie sich der S&P 500 in den letzten 30 Tagen bewegt hat — der breiteste Risk-Asset-Massstab. Dieser Wert (nicht die Korrelation) fliesst in den Makro-Gegenwind-Score ein.",hist:"Steigender S&P = Rückenwind fürs allgemeine Risikoklima, fallender = Gegenwind. Nur relevant für BTC, wenn die Korrelation gerade hoch ist — siehe Karte daneben."},
   spcorr:{t:"BTC ↔ S&P-Korrelation",u:"",what:"Wie stark BTC sich in den letzten ~30 Tagen mit dem S&P 500 mitbewegt hat (−1 bis +1). Client-seitig berechnet.",hist:"Hohe positive Korrelation = BTC handelt wie ein Risk-Asset, dann zählt die Aktienrichtung. Nahe null = BTC entkoppelt, Crypto-interne Signale dominieren."},
-  gold:{t:"Goldpreis",u:"USD",what:"Gold-Spot je Feinunze (XAU/USD via Stooq — die frühere FRED-Serie GOLDAMGBD228NLBM wurde von FRED eingestellt). Doppelrolle: Kontext für BTC („digitales Gold\") und Basiswert des Gold-Blocks für die eigene Gold-Position.",hist:"Steigendes Gold zeigt Store-of-Value-Nachfrage und Misstrauen ins Papiergeld — Umfeld, in dem BTC oft mitläuft. Für die Gold-Position selbst zählen die zwei Karten daneben: Trendabstand und Realzins. Chip-Totzone: ±1% über 30 Tage gilt als seitwärts."},
-  gold200:{t:"Gold ÷ 200-Tage-Schnitt",u:"",what:"Goldpreis geteilt durch seinen 200-Tage-Durchschnitt — dasselbe Konzept wie das Mayer Multiple bei BTC, nur für Gold. 1.00 = genau am Trend, serverseitig aus ~300 Handelstagen berechnet.",hist:"Gold pendelt deutlich enger um seinen Trend als BTC: historisch meist zwischen ~0.9 und ~1.15. Deutlich höhere Werte traten in Übertreibungsphasen auf (1980, 2011). Die Chip-Bänder (<0.95 unter Trend · ≤1.10 am Trend · ≤1.25 gestreckt · darüber stark gestreckt) sind Faustregeln, statistisch nicht belastbar — Kontext, kein Signal. Fliesst weder in den Strom- noch in den Makro-Score."},
+  gold:{t:"Goldpreis",u:"USD",what:"Gold-Spot je Feinunze (XAU/USD via Stooq — die frühere FRED-Serie GOLDAMGBD228NLBM wurde von FRED eingestellt). Auf der BTC-Seite reiner Kontext („digitales Gold\"), die volle Gold-Analyse hat einen eigenen Tab.",hist:"Steigendes Gold zeigt Store-of-Value-Nachfrage und Misstrauen ins Papiergeld — Umfeld, in dem BTC oft mitläuft. Chip-Totzone: ±1% über 30 Tage gilt als seitwärts."},
+  gold200:{t:"Gold ÷ 200-Tage-Schnitt",u:"",what:"Goldpreis geteilt durch seinen 200-Tage-Durchschnitt — dasselbe Konzept wie das Mayer Multiple bei BTC, nur für Gold. 1.00 = genau am Trend, serverseitig aus ~300 Handelstagen berechnet. Gewicht 0.6 im Gold-Strom.",hist:"Gold pendelt deutlich enger um seinen Trend als BTC: historisch meist zwischen ~0.9 und ~1.15. Deutlich höhere Werte traten in Übertreibungsphasen auf (1980, 2011). Die Schwellen sind Faustregeln, statistisch nicht belastbar — auf zwei bis drei grossen Gold-Regimes seit 1971 lässt sich nichts kalibrieren."},
+  golddd:{t:"Abstand vom 1J-Hoch",u:"%",what:"Wie weit der Goldpreis unter dem höchsten Stand der letzten ~430 Tage liegt (0% = am Hoch). Gewicht 0.4 im Gold-Strom — das Pendant zum Drawdown-Scorer bei BTC.",hist:"Gold korrigiert flacher als BTC: normale Rücksetzer 3–10%, grosse Korrekturen 15–25% (2013: −28% in einem Jahr). Nahe am Hoch = teuer relativ zum eigenen Jahr, tiefer Abstand = historisch eher Einstiegszonen. Faustregel: In strukturellen Bullenmärkten notiert Gold notorisch oft am Hoch — der Wert allein ist kein Verkaufssignal."},
+  goldmacro:{t:"Umfeld für Gold",u:"",what:"Fasst die drei wichtigsten Gold-Treiber zu einem Rücken-/Gegenwind-Balken zusammen: US-Realzins (Richtung, invers), Dollar (Richtung, invers) und M2-Liquidität. Gleiche Mechanik wie das BTC-Makro-Umfeld, mit denselben Totzonen.",hist:"Fliesst bewusst NICHT in den Gold-Strom — Treiber-Richtung und Bewertung sind zwei verschiedene Fragen, genau wie beim BTC-Cockpit. Der Balken beantwortet „hilft oder bremst das Umfeld gerade?“, die Bewertungs-Achse „ist Gold relativ zu sich selbst teuer?“."},
   tips:{t:"US-Realzins 10J (TIPS)",u:"%",what:"Rendite 10-jähriger inflationsgeschützter US-Staatsanleihen (FRED DFII10) — der Zins nach Abzug der Inflationserwartung.",hist:"Der historisch stabilste Gold-Treiber: Gold zahlt keinen Zins und konkurriert darum mit dem Realzins. Fallender Realzins = Rückenwind für Gold, steigender = Gegenwind. Die inverse Beziehung war 2004–2021 bemerkenswert eng, seit 2022 lockerer (u.a. Zentralbankkäufe) — Richtung zählt, nicht Präzision. Chip-Totzone: ±0.10 pp über 30 Tage. Kontext für Gold, fliesst nicht in den Makro-Score für BTC."},
-  m2:{t:"Geldmenge M2",u:"",what:"Die breite US-Geldmenge (FRED M2SL) — ein Mass für die Liquidität im System.",hist:"Wachsende Liquidität war langfristig der stärkste Rückenwind für BTC. Schrumpfende Geldmenge = Gegenwind. Monatlich aktualisiert, träge."},
+  m2:{t:"Geldmenge M2",u:"",what:"Die breite US-Geldmenge (FRED M2SL) — ein Mass für die Liquidität im System.",hist:"Wachsende Liquidität war langfristig der stärkste Rückenwind für BTC — und stützt Gold auf dieselbe Weise. Schrumpfende Geldmenge = Gegenwind. Monatlich aktualisiert, träge."},
   macro:{t:"Makro-Umfeld",u:"",what:"Fasst Dollar, Zinsen, S&P-Trend und Liquidität zu einem Gegenwind/Rückenwind-Score zusammen.",hist:"Bewusst NICHT im Strom-Score — das BTC-Makro-Verhältnis ist zu instabil, um es in eine Bull/Bear-Zahl zu mitteln. Es steuert stattdessen den Klartext und später die Szenarien."},
   scenario:{t:"Wie die Szenarien entstehen",u:"",what:"Kein Kursziel und keine Vorhersage. Die App sucht in der BTC-Historie alle Tage, an denen Mayer, Fear&Greed und Funding in ähnlichen Bereichen lagen wie heute, und zeigt, wie sich der Kurs danach entwickelt hat.",hist:"Entscheidend: zusammenhängende Treffer-Tage werden zu einer Episode zusammengefasst (ein 60-Tage-Bärenmarkt = EINE Episode, nicht 60 Fälle) und ab dem ersten Tag gemessen. So zählt jede unabhängige historische Situation nur einmal. Reicht die Zahl der Episoden nicht, lockert die App die Bedingungen (erst Funding weg, dann FNG). BTC hat nur ~8 Jahre Historie — bei wenigen Episoden sind die Zahlen grobe Orientierung, keine belastbare Statistik. Die Zeile „Schlechteste Episode“ zeigt bewusst den historisch übelsten Verlauf: Der Median beschreibt den typischen Fall, aber BTC lebt in den Rändern — die Episode, die weh tut, verschwindet im Median."},
   journal:{t:"Journal · Lerneffekt",u:"",what:"Hält fest, was Panta Rey an jedem Tag „dachte“ (der Composite-Strom-Score) und vergleicht es später mit der tatsächlichen Kursentwicklung 1 Woche, 1 Monat und 3 Monate danach.",hist:"So siehst du über die Zeit, ob die Akkumulations-/Distributions-Einschätzung des Tools im Rückblick gestimmt hat — als beobachtete Tendenz, nicht als Note. Es ist bewusst ehrlich: Es wertet nur tatsächlich aufgezeichnete Tage aus (keine rückwirkende Schönrechnung), und aufeinanderfolgende Tage mit gleicher Haltung zählen als EINE Episode — dieselbe Autokorrelations-Korrektur wie bei den Szenarien, sonst wären 10 ruhige Juni-Tage fälschlich 10 Beweise. Kalibrierung erscheint erst ab 3 unabhängigen reifen Episoden. Neu dazu der Entscheidungslog: ein Tipp pro Tag hält fest, was DU getan hast (nur am Tag selbst eintragbar) — der einzige Track-Record, der dein Verhalten verbessert, ist dein eigener."}
@@ -785,13 +837,13 @@ const $=id=>document.getElementById(id);
 const colMap={g:"var(--teal)",a:"var(--amber)",r:"var(--coral)",n:"#586575"};
 
 function polar(cx,cy,r,deg){const a=(deg-180)*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)];}
-function renderGauge(score){
-  const g=$("gauge");const cx=150,cy=150,r=120;
+function renderGauge(score,elId){
+  const g=$(elId||"gauge");if(!g)return;const gid="grad-"+(elId||"gauge");const cx=150,cy=150,r=120;
   const arc=(s,e,id)=>{const[x1,y1]=polar(cx,cy,r,s),[x2,y2]=polar(cx,cy,r,e);const la=(e-s)>180?1:0;return`M${x1} ${y1} A ${r} ${r} 0 ${la} 1 ${x2} ${y2}`;};
-  let html=`<defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+  let html=`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="0">
     <stop offset="0" stop-color="var(--grad-a)"/><stop offset="0.5" stop-color="var(--grad-b)"/><stop offset="1" stop-color="var(--grad-c)"/></linearGradient></defs>`;
   html+=`<path d="${arc(0,180)}" stroke="#0d1622" stroke-width="20" fill="none" stroke-linecap="round"/>`;
-  html+=`<path d="${arc(0,180)}" stroke="url(#grad)" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.92"/>`;
+  html+=`<path d="${arc(0,180)}" stroke="url(#${gid})" stroke-width="14" fill="none" stroke-linecap="round" opacity="0.92"/>`;
   if(score!=null){
     const ang=score/100*180;const[mx,my]=polar(cx,cy,r,ang);
     const[ix,iy]=polar(cx,cy,r-22,ang);
@@ -879,6 +931,7 @@ function render(){
   $("tier2").innerHTML=h2;
 
   renderMacro();
+  renderGold();
 
   // anchors
   const anc=[];
@@ -946,14 +999,68 @@ function renderMacro(){
   if(I.us10y)h+=regCard("us10y","US 10J-Zins",I.us10y.v.toFixed(2)+"%",chipHead(C&&C.macro&&C.macro.us10y));
   if(I.sp500&&I.sp500.trend!=null){const t=I.sp500.trend;h+=regCard("sp500","S&amp;P 500 (30T-Trend)",(t>=0?"+":"")+t.toFixed(1)+"%",t>0?'<span class="regime rg-teal">Rücken</span>':'<span class="regime rg-coral">Gegen</span>');}
   if(I.spcorr&&I.spcorr.v!=null)h+=regCard("spcorr","S&amp;P-Korrelation",I.spcorr.v.toFixed(2),chipCorr(I.spcorr.v));
+  if(I.gold)h+=regCard("gold","Gold","$"+fmtUSD(I.gold.v),chipGoldTrend(I.gold.chg));
   if(I.m2)h+=regCard("m2","Liquidität M2","$"+(I.m2.v/1000).toFixed(1)+"T",chipHead(C&&C.macro&&C.macro.m2,true));
-  if(I.gold||I.tips){ // Quellen isoliert: Stooq-Ausfall darf die Realzins-Karte nicht verstecken (und umgekehrt)
-    h+='<div class="sub" style="margin:10px 2px 5px;font-size:10px;letter-spacing:.5px;text-transform:uppercase;color:var(--mut)">Gold-Block · Kontext für Gold, nicht BTC</div>';
-    if(I.gold)h+=regCard("gold","Goldpreis","$"+fmtUSD(I.gold.v),chipGoldTrend(I.gold.chg));
-    if(I.gold&&I.gold.r200!=null)h+=regCard("gold200","Gold ÷ 200T-Schnitt",I.gold.r200.toFixed(2),chipGold200(I.gold.r200));
-    if(I.tips)h+=regCard("tips","US-Realzins 10J",I.tips.v.toFixed(2)+"%",chipTips(I.tips.chg));
-  }
   if(!h)h='<div class="card" style="color:var(--mut)">Makro-Daten werden geladen … oder Worker nicht erreichbar.</div>';
+  w.innerHTML=h;
+}
+
+/* ---------------- Gold-Seite (eigener Strom + Umfeld, komplett getrennt vom BTC-Composite) ----------------
+   Gold-Strom (0 = günstig … 100 = gestreckt): NUR Bewertungs-Scorer —
+   r200 (Gewicht 0.6) + Abstand vom ~1J-Hoch (0.4). Für Gold gibt es kein
+   gratis Sentiment/Funding — bewusst 2 Signale statt Pseudo-Tiefe.
+   Umfeld (Rücken/Gegen, wie BTC-Makro mit Totzonen): Realzins, Dollar, M2.
+   Alle Schwellen sind Faustregeln (EB sagt das). Berührt den BTC-Composite nirgends. */
+let GC=null;
+function computeGold(I){
+  const out={score:null,parts:{},macroScore:null,macroRegime:null};const t1=[];const mp=[];
+  const G=I.gold;
+  if(G&&G.r200!=null){const r=G.r200;const sc=r<0.90?12:r<0.95?28:r<=1.05?45:r<=1.10?55:r<=1.18?68:r<=1.25?80:92;
+    out.parts.r200={sc,st:r<0.95?"g":r<=1.18?"a":"r"};t1.push({w:0.6,sc});}
+  if(G&&G.dd!=null){const d=G.dd;const sc=d>=-2?72:d>=-6?60:d>=-12?48:d>=-18?34:18;
+    out.parts.dd={sc,st:d<=-12?"g":d<=-4?"a":"r"};t1.push({w:0.4,sc});}
+  if(t1.length){const W=t1.reduce((s,o)=>s+o.w,0);out.score=Math.round(t1.reduce((s,o)=>s+o.sc*o.w,0)/W);}
+  if(I.tips&&I.tips.chg!=null){const d=band(I.tips.chg,0.10);out.parts.tips={st:d>0?"r":d<0?"g":"a"};mp.push(d>0?80:d<0?20:50);}
+  if(I.dxy&&I.dxy.chg!=null){const d=band(I.dxy.chg,0.5);out.parts.dxy={st:d>0?"r":d<0?"g":"a"};mp.push(d>0?80:d<0?20:50);}
+  if(I.m2&&I.m2.chg!=null){const up=I.m2.chg>0;out.parts.m2={st:up?"g":"a"};mp.push(up?25:55);}
+  if(mp.length){out.macroScore=Math.round(mp.reduce((a,b)=>a+b,0)/mp.length);
+    out.macroRegime=out.macroScore<40?"tailwind":out.macroScore>60?"headwind":"neutral";}
+  return out;
+}
+function goldKlartext(I,G){
+  if(G.score==null)return"Noch keine Gold-Daten. Die Gold-Seite lebt komplett von Worker-Daten (Stooq + FRED) — Worker-URL im Zahnrad prüfen und aktualisieren.";
+  const p=[];
+  if(I.gold&&I.gold.r200!=null){const r=I.gold.r200;p.push(r<0.95?"Gold notiert unter seinem 200-Tage-Trend":r<=1.10?"Gold liegt nahe am 200-Tage-Trend":"Gold notiert "+((r-1)*100).toFixed(0)+"% über seinem 200-Tage-Trend");}
+  if(I.gold&&I.gold.dd!=null)p.push(I.gold.dd>=-2?"praktisch am 1J-Hoch":Math.abs(I.gold.dd).toFixed(0)+"% unter dem 1J-Hoch");
+  if(G.macroRegime)p.push("Umfeld: "+(G.macroRegime==="tailwind"?"Rückenwind":G.macroRegime==="headwind"?"Gegenwind":"neutral")+(I.tips?" (Realzins "+I.tips.v.toFixed(2)+"%)":""));
+  return p.join(" · ")+". Faustregel-Bild — Einordnung, keine Empfehlung.";
+}
+function renderGold(){
+  const w=$("goldTier1");if(!w)return;const I=MK?MK.ind:{};
+  GC=computeGold(I);const gs=GC.score;
+  renderGauge(gs,"gaugeG");
+  $("cscoreG").textContent=gs==null?"–":gs;
+  $("clabelG").textContent=gs==null?"Lade Daten …":gs<40?"Eher günstige Zone":gs<=60?"Am Trend":"Gestreckte Zone";
+  $("clabelG").style.color=gs==null?"var(--mut)":gs<40?"var(--teal)":gs<=60?"var(--amber)":"var(--coral)";
+  $("ctextG").textContent=goldKlartext(I,GC);
+  if(I.gold){$("priceG").textContent="$"+fmtUSD(I.gold.v);$("chG30").textContent="30T "+(I.gold.chg>=0?"+":"")+I.gold.chg.toFixed(1)+"%";}
+  let h="";
+  if(I.gold&&I.gold.r200!=null)h+=card("gold200","Gold ÷ 200T-Schnitt","Mayer-Analog · Gewicht 0.6",I.gold.r200.toFixed(2),null,GC.parts.r200?GC.parts.r200.st:"n",I.gold.stale);
+  if(I.gold&&I.gold.dd!=null)h+=card("golddd","Abstand vom 1J-Hoch","höchster Stand der letzten ~430 T · Gewicht 0.4",I.gold.dd.toFixed(1)+"%",null,GC.parts.dd?GC.parts.dd.st:"n",I.gold.stale);
+  if(!h)h='<div class="card" style="display:block;color:var(--mut)">Keine Gold-Daten — Worker prüfen (liefert der Worker unter /macro ein „gold“-Objekt?).</div>';
+  w.innerHTML=h;
+  renderGoldMacro(I);
+}
+function renderGoldMacro(I){
+  const w=$("goldMacroWrap");if(!w)return;const G=GC||{};
+  if(!CFG.workerUrl){w.innerHTML='<div class="card" style="display:block"><div class="nm" style="margin-bottom:4px">Gold-Seite inaktiv</div><div class="sub" style="line-height:1.5">Die Gold-Seite lebt komplett von Worker-Daten (Stooq + FRED). Worker-URL im Zahnrad eintragen.</div></div>';return;}
+  let h="";
+  if(G.macroScore!=null){const v=G.macroScore;const lbl=v<40?"Rückenwind":v>60?"Gegenwind":"Neutral";const col=v<40?"var(--teal)":v>60?"var(--coral)":"var(--amber)";
+    h+=`<div class="lens" data-eb="goldmacro" style="margin-bottom:9px"><div class="lname"><span>Umfeld für Gold<span class="qmini">?</span></span><span class="lval" style="color:${col}">${lbl}</span></div><div class="bar"><i style="width:${v}%;background:${col}"></i></div></div>`;}
+  if(I.tips)h+=regCard("tips","US-Realzins 10J",I.tips.v.toFixed(2)+"%",chipTips(I.tips.chg));
+  if(I.dxy)h+=regCard("dxy","US-Dollar (breit)",I.dxy.v.toFixed(1),chipHead(G.parts&&G.parts.dxy));
+  if(I.m2)h+=regCard("m2","Liquidität M2","$"+(I.m2.v/1000).toFixed(1)+"T",chipHead(G.parts&&G.parts.m2,true));
+  if(!h)h='<div class="card" style="display:block;color:var(--mut)">Umfeld-Daten werden geladen … oder Worker nicht erreichbar.</div>';
   w.innerHTML=h;
 }
 
@@ -962,9 +1069,10 @@ function buildSnapshot(){
   const m=MK,C=LC;if(!m||!C)return null;const I=m.ind;
   const g=o=>o&&o.v!=null?o.v:null;
   return {date:new Date().toISOString().slice(0,10),btc_usd:m.price,
-    indicators:{mayer:g(I.mayer),fng:g(I.fng),rsi:g(I.rsi),er:(I.er4&&I.er4.v!=null?I.er4.v:g(I.er)),funding:g(I.funding),dvol:g(I.dvol),dom:g(I.dom),cbprem:g(I.cbprem),dxy:g(I.dxy),us10y:g(I.us10y),spcorr:g(I.spcorr),gold:g(I.gold),gold_r200:(I.gold&&I.gold.r200!=null?I.gold.r200:null),tips:g(I.tips)},
+    indicators:{mayer:g(I.mayer),fng:g(I.fng),rsi:g(I.rsi),er:(I.er4&&I.er4.v!=null?I.er4.v:g(I.er)),funding:g(I.funding),dvol:g(I.dvol),dom:g(I.dom),cbprem:g(I.cbprem),dxy:g(I.dxy),us10y:g(I.us10y),spcorr:g(I.spcorr),gold:g(I.gold),gold_r200:(I.gold&&I.gold.r200!=null?I.gold.r200:null),gold_dd:(I.gold&&I.gold.dd!=null?I.gold.dd:null),tips:g(I.tips)},
     lens_scores:{valuation:C.lens.val,positioning:C.lens.pos},
-    macro_score:C.macroScore,composite:C.comp.score};
+    macro_score:C.macroScore,composite:C.comp.score,
+    gold_score:(GC&&GC.score!=null?GC.score:null),gold_umfeld:(GC&&GC.macroScore!=null?GC.macroScore:null)};
 }
 let snapWarned=false; // Fehl-Toast max. 1x pro Sitzung (Worker down soll nicht nerven, aber sichtbar sein)
 async function maybeSnapshot(){
@@ -1156,7 +1264,7 @@ function openEB(id){
   if(lblMap[id])lbl=lblMap[id];
   try{const v=map[id]&&map[id]();if(v)val=v;}catch(_){}
   $("ebTitle").textContent=e.t;
-  $("ebMeta").textContent=({mayer:"Bewertung",drawdown:"Bewertung",realized:"Bewertung",fng:"Positionierung",funding:"Positionierung",cbprem:"Positionierung",er:"Kontext · Regime",dvol:"Kontext · Regime",align:"Kontext · Regime",dom:"Kontext · Regime",rsi:"Kontext · Regime",phase:"Kontext · Regime",bewertung:"Sub-Linse · fliesst in den Strom",positionierung:"Sub-Linse · fliesst in den Strom",anker:"Manuell",dxy:"Makro · Kontext",sp500:"Makro · Kontext",us10y:"Makro · Kontext",spcorr:"Makro · Kontext",gold:"Makro · Gold-Block",gold200:"Makro · Gold-Block",tips:"Makro · Gold-Block",m2:"Makro · Kontext",macro:"Makro · Kontext",scenario:"Methodik",journal:"Methodik"})[id]||"";
+  $("ebMeta").textContent=({mayer:"Bewertung",drawdown:"Bewertung",realized:"Bewertung",fng:"Positionierung",funding:"Positionierung",cbprem:"Positionierung",er:"Kontext · Regime",dvol:"Kontext · Regime",align:"Kontext · Regime",dom:"Kontext · Regime",rsi:"Kontext · Regime",phase:"Kontext · Regime",bewertung:"Sub-Linse · fliesst in den Strom",positionierung:"Sub-Linse · fliesst in den Strom",anker:"Manuell",dxy:"Makro · Kontext",sp500:"Makro · Kontext",us10y:"Makro · Kontext",spcorr:"Makro · Kontext",gold:"Makro · Kontext",gold200:"Gold · Bewertungs-Achse",golddd:"Gold · Bewertungs-Achse",tips:"Gold · Umfeld",goldmacro:"Gold · Umfeld",m2:"Makro · Kontext",macro:"Makro · Kontext",scenario:"Methodik",journal:"Methodik"})[id]||"";
   $("ebWhat").textContent=e.what;
   $("ebHist").textContent=e.hist;
   $("ebVal").textContent=val;$("ebValLbl").textContent=lbl;
@@ -1188,6 +1296,8 @@ function ebNow(id){const m=MK;if(!m)return"—";const I=m.ind;
     case"spcorr":if(!I.spcorr||I.spcorr.v==null)return"—";return Math.abs(I.spcorr.v)<0.3?"BTC ist gerade von Aktien entkoppelt — Crypto-interne Signale zählen stärker.":(I.spcorr.v>0?"BTC läuft gerade wie ein Risk-Asset — auf den S&P schauen.":"BTC läuft gegenläufig zu Aktien.");
     case"gold":if(!I.gold)return"—";return I.gold.chg>1?"Gold steigt (+"+I.gold.chg.toFixed(1)+"% / 30T) — Store-of-Value-Nachfrage aktiv.":I.gold.chg<-1?"Gold fällt ("+I.gold.chg.toFixed(1)+"% / 30T).":"Gold seitwärts ("+(I.gold.chg>=0?"+":"")+I.gold.chg.toFixed(1)+"% / 30T).";
     case"gold200":{if(!I.gold||I.gold.r200==null)return"—";const r=I.gold.r200;return r<0.95?"Gold notiert "+((1-r)*100).toFixed(0)+"% unter seinem 200-Tage-Trend — historisch eher günstige Zone (Faustregel).":r<=1.10?"Gold liegt nahe am 200-Tage-Trend ("+r.toFixed(2)+").":"Gold notiert "+((r-1)*100).toFixed(0)+"% über seinem 200-Tage-Trend — gestreckt (Faustregel).";}
+    case"golddd":{if(!I.gold||I.gold.dd==null)return"—";const d=I.gold.dd;return d>=-2?"Gold notiert praktisch am 1J-Hoch — teuer relativ zum eigenen Jahr, in Bullenphasen aber der Normalzustand.":d>=-8?"Gold liegt "+Math.abs(d).toFixed(1)+"% unter dem 1J-Hoch — normaler Rücksetzer-Bereich.":"Gold liegt "+Math.abs(d).toFixed(1)+"% unter dem 1J-Hoch — grössere Korrektur, historisch eher Einstiegszonen (Faustregel).";}
+    case"goldmacro":{if(!GC||GC.macroScore==null)return"Noch nicht berechnet — Worker-Daten fehlen.";const v=GC.macroScore;return v<40?"Aktuell Rückenwind für Gold ("+Math.round(v)+"/100).":v<=60?"Neutrales Umfeld für Gold ("+Math.round(v)+"/100).":"Aktuell Gegenwind für Gold ("+Math.round(v)+"/100).";}
     case"tips":if(!I.tips)return"—";return I.tips.chg<-0.10?"Realzins fällt ("+I.tips.chg.toFixed(2)+" pp / 30T) — Rückenwind für Gold.":I.tips.chg>0.10?"Realzins steigt (+"+I.tips.chg.toFixed(2)+" pp / 30T) — Gegenwind für Gold.":"Realzins seitwärts (aktuell "+I.tips.v.toFixed(2)+"%) — neutral für Gold.";
     case"m2":if(!I.m2)return"—";return I.m2.chg>0?"Geldmenge wächst — mehr Liquidität, langfristig Rückenwind.":"Geldmenge stagniert/schrumpft — weniger Liquidität.";
     case"macro":{if(!LC||LC.macroScore==null)return"Makro-Linse nicht aktiv (Worker-URL in den Einstellungen eintragen).";const v=LC.macroScore;return v<40?"Aktuell Rückenwind fürs Umfeld ("+Math.round(v)+"/100).":v<60?"Neutrales Makro-Umfeld ("+Math.round(v)+"/100).":"Aktuell Gegenwind fürs Umfeld ("+Math.round(v)+"/100).";}
@@ -1276,6 +1386,20 @@ async function refresh(){
   }
 }
 $("refreshBtn").addEventListener("click",refresh);
+
+/* ---------------- Asset-Tabs (BTC / Gold) ---------------- */
+function switchTab(t){
+  const gold=t==="gold";
+  $("pageBTC").style.display=gold?"none":"";
+  $("pageGold").style.display=gold?"":"none";
+  $("tabBTC").classList.toggle("on",!gold);
+  $("tabGold").classList.toggle("on",gold);
+  $("srcline").textContent=gold?"Stooq · FRED — via Worker":"Binance · alternative.me · Deribit · Coinbase · CoinGecko";
+  try{localStorage.setItem("pr_tab",t);}catch(_){}
+}
+$("tabBTC").addEventListener("click",()=>switchTab("btc"));
+$("tabGold").addEventListener("click",()=>switchTab("gold"));
+try{if(localStorage.getItem("pr_tab")==="gold")switchTab("gold");}catch(_){}
 $("rebuildHistBtn").addEventListener("click",()=>{toast("Historie wird neu geladen …");loadScenarios(true);});
 
 /* ---------------- Init ---------------- */
