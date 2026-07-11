@@ -377,6 +377,8 @@
 
 <script>
 "use strict";
+/* Totzonen-Helper — global, von computeMacro UND computeGold genutzt. 0=neutral, ±1=Richtung. */
+const BAND=(v,thr)=>Math.abs(v)<thr?0:(v>0?1:-1);
 /* ---------------- Storage (defensiv) ---------------- */
 const store={
   get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},
@@ -781,7 +783,7 @@ function compute(m){
 
   // MACRO (Kontext, NICHT im Composite) — Gegenwind-Score 0=Rücken … 100=Gegen
   out.macro={}; const mp=[];
-  const band=(v,thr)=>Math.abs(v)<thr?0:(v>0?1:-1);   // 0=neutral, ±1=Richtung
+  const band=BAND;   // gemeinsame Totzonen-Helper (global, s.u.)
   if(I.dxy){const d=band(I.dxy.chg,0.5);out.macro.dxy={st:d>0?"r":d<0?"g":"a"};mp.push(d>0?80:d<0?20:50);}        // %-Änderung 30T
   if(I.us10y){const d=band(I.us10y.chg,0.10);out.macro.us10y={st:d>0?"r":d<0?"g":"a"};mp.push(d>0?80:d<0?20:50);}  // pp-Änderung 30T
   if(I.sp500&&I.sp500.trend!=null){const d=band(I.sp500.trend,1.0);out.macro.sp500={st:d>0?"g":d<0?"r":"a"};mp.push(d>0?20:d<0?80:50);}
@@ -1027,7 +1029,7 @@ function renderMacro(){
    Alle Schwellen sind Faustregeln (EB sagt das). Berührt den BTC-Composite nirgends. */
 let GC=null;
 function computeGold(I){
-  const out={score:null,parts:{},macroScore:null,macroRegime:null};const t1=[];const mp=[];
+  const out={score:null,parts:{},macroScore:null,macroRegime:null};const t1=[];const mp=[];const band=BAND;
   const G=I.gold;
   if(G&&G.r200!=null){const r=G.r200;const sc=r<0.90?12:r<0.95?28:r<=1.05?45:r<=1.10?55:r<=1.18?68:r<=1.25?80:92;
     out.parts.r200={sc,st:r<0.95?"g":r<=1.18?"a":"r"};t1.push({w:0.6,sc});}
